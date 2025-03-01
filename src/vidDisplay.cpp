@@ -74,6 +74,7 @@ private:
                 imgs.arucoFrame = imgs.frame.clone();
                 cv::aruco::drawDetectedMarkers(imgs.arucoFrame, corner_set, markerIds);
                 imshow(WINDOW_ARUCO, imgs.arucoFrame);
+                cout << "The size of detected corner" << corner_set.size() << endl;
                 break;
         }
     }
