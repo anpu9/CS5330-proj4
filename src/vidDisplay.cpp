@@ -5,6 +5,7 @@
  */
 
 #include <opencv2/opencv.hpp>
+#include <opencv2/aruco.hpp>
 #include <iostream>
 
 
@@ -16,26 +17,32 @@ private:
     // Modes for image processing
     enum class Mode {
         NORMAL,
-
+        ARUCO,
     };
+    // Aruco detected points;
+    std::vector<int> markerIds;
+    std::vector<std::vector<cv::Point2f>> corner_set;
 
     // Constants for window names
     const string WINDOW_VIDEO = "Live";
+    const string WINDOW_ARUCO = "Aruco Markers";
 
     // Member variables
     VideoCapture cap;
     const string OUTPUT_DIR = "../outputs/";
     int imageId = 0;
-    Mode currentMode = Mode::NORMAL;
+    Mode currentMode = Mode::ARUCO;
+    cv::aruco::ArucoDetector detector;
     float scale_factor;
     Size targetSize;
 
     struct Images {
         Mat frame;
+        Mat arucoFrame;
     } imgs;
 
-    string generateFilename(const string &task = "", const string &suffix = "") {
-        return OUTPUT_DIR + task + to_string(imageId) + suffix + ".png";
+    string generateFilename(const string &prefix = "", const string &suffix = "") {
+        return OUTPUT_DIR + prefix + to_string(imageId) + suffix + ".png";
     }
 
     /**
@@ -45,19 +52,30 @@ private:
         imwrite(generateFilename(), imgs.frame);
         cout << "Saved normal image " << ++imageId << endl;
         // Save other frames if they exist
-//        switch (currentMode) {
-//
-//            default:
-//                // No additional images to save
-//                break;
-//        }
+        switch (currentMode) {
+            case Mode::ARUCO:
+                imwrite(generateFilename("aruco_"), imgs.frame);
+            default:
+                // No additional images to save
+                break;
+        }
     }
 
 
 // Applies image processing
     void processFrame() {
         resize(imgs.frame, imgs.frame, targetSize);
-        imshow(WINDOW_VIDEO, imgs.frame);
+        switch (currentMode) {
+            case Mode::NORMAL:
+                imshow(WINDOW_VIDEO, imgs.frame);
+                break;
+            case Mode::ARUCO:
+                detector.detectMarkers(imgs.frame, corner_set, markerIds);
+                imgs.arucoFrame = imgs.frame.clone();
+                cv::aruco::drawDetectedMarkers(imgs.arucoFrame, corner_set, markerIds);
+                imshow(WINDOW_ARUCO, imgs.arucoFrame);
+                break;
+        }
     }
 
     /**
@@ -95,15 +113,31 @@ public:
         namedWindow(WINDOW_VIDEO, WINDOW_AUTOSIZE);
 
     }
+    /**
+     * @brief initialize a Aruco marker detector
+     */
+    void initializeArucoDetector() {
+        cv::aruco::Dictionary dictionary;
+        cv::aruco::DetectorParameters detectParams;
+        cv::aruco::RefineParameters refineParams;
+        dictionary = aruco::getPredefinedDictionary(aruco::DICT_5X5_1000);
+        detectParams = aruco::DetectorParameters();
+        refineParams = aruco::RefineParameters();
+
+        detector = cv::aruco::ArucoDetector(dictionary, detectParams, refineParams);
+    }
 
     /**
      * @brief Main application loop.
      */
     void run() {
-        cout << "Videos on, controls:\n"
+        cout << "Default: Enable Aruco Marker detection "
+             << "Videos controls:\n"
              << " 's' - Save photo\n"
              << " 'q' - Quit\n";
+
         try {
+            initializeArucoDetector();
             while (true) {
                 if (!cap.read(imgs.frame)) {
                     throw runtime_error("Failed to capture frame");
