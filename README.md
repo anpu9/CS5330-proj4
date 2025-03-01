@@ -28,5 +28,5 @@ Proj3/
   ```bash
   ./VidDisplay 
   Task 1 - Aruco marker detection is the default mode, simply run the program. The detected corner will be drawn and be printed out the size
-
+  Task 2 - By hitting 's', the corner data of the current frame will be stored for calibration.
  ```
