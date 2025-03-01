@@ -13,5 +13,5 @@ function(add_opencv_executable exe_name)
     target_link_libraries(${exe_name} PRIVATE ${OpenCV_LIBS})
 endfunction()
 
-add_opencv_executable(video
+add_opencv_executable(VidDisplay
         src/vidDisplay.cpp)
