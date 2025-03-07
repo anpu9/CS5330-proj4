@@ -52,28 +52,40 @@ private:
       * @brief Saves the current frame and detected corners for calibration.
       * @param cols the cols of markers in the calibration images
       * @param square_size the size of a target square, by default, is in units of target squares, which is 1
+      * @param margin_size the size of a margin between a target square and its neighbor, by default, it is 0.2
       */
-    void saveCalibrationData(int cols, float square_size = 1.0f) {
+    void saveCalibrationData(int cols, float square_size = 1.0f, float margin_size = 0.2f) {
         if (corner_set.empty()) {
             cerr << "No valid markers detected. Image not saved for calibration." << endl;
             return;
         }
         vector<vector<Point3f>> framePoints; // Temporary container for 3D current image points
-        for (size_t i = 0; i < corner_set.size(); i++) {
-            // Determine marker's row & column in a grid structure
-            int grid_x = markerIds[i] % cols;  // Marker ID defines X position
-            int grid_y = markerIds[i] / cols;  // Marker ID defines Y position
+         for (size_t i = 0; i < corner_set.size(); i++) {
+             int marker_id = markerIds[i];  // Get marker ID
+             int grid_x = marker_id % cols;
+             int grid_y = marker_id / cols;
 
-            // Generate 3D world coordinates based on unit squares, assuming it's a flat plane
-            vector<Point3f> markerPoints;
-            markerPoints.emplace_back(Point3f(grid_x * square_size, -grid_y * square_size, 0));   // Top-left
-            markerPoints.emplace_back(Point3f((grid_x + 1) * square_size, -grid_y * square_size, 0));   // Top-right
-            markerPoints.emplace_back(Point3f((grid_x + 1) * square_size, -(grid_y + 1) * square_size, 0));   // Bottom-right
-            markerPoints.emplace_back(Point3f(grid_x * square_size, -(grid_y + 1) * square_size, 0));    // Bottom-left
+             // Apply margins only after the first row and first column
+             float offset_x = grid_x * square_size + (grid_x > 0 ? grid_x * margin_size : 0);
+             float offset_y = -grid_y * square_size - (grid_y > 0 ? grid_y * margin_size : 0);
 
-            framePoints.emplace_back(markerPoints);
-        }
-        // add the 2d frame to corner_list
+             vector<Point3f> markerPoints;
+             markerPoints.emplace_back(Point3f(offset_x, offset_y, 0));   // Top-left
+             markerPoints.emplace_back(Point3f(offset_x + square_size, offset_y, 0));   // Top-right
+             markerPoints.emplace_back(Point3f(offset_x + square_size, offset_y - square_size, 0));   // Bottom-right
+             markerPoints.emplace_back(Point3f(offset_x, offset_y - square_size, 0));    // Bottom-left
+
+             framePoints.emplace_back(markerPoints);
+
+             // Print marker ID and positions
+             cout << "Marker ID: " << marker_id << " at grid (" << grid_x << ", " << grid_y << ")\n";
+             cout << "  Top-left: (" << offset_x << ", " << offset_y << ", 0)\n";
+             cout << "  Top-right: (" << offset_x + square_size << ", " << offset_y << ", 0)\n";
+             cout << "  Bottom-right: (" << offset_x + square_size << ", " << offset_y - square_size << ", 0)\n";
+             cout << "  Bottom-left: (" << offset_x << ", " << offset_y - square_size << ", 0)\n";
+         }
+
+         // add the 2d frame to corner_list
         corner_list.emplace_back(corner_set);
         // add the 3d frame to point_list
         point_list.emplace_back(framePoints);
@@ -154,7 +166,6 @@ private:
                 break;
             case 'q':
                 exit(0);
-                break;
         }
     }
 
