@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.26)
+cmake_minimum_required(VERSION 3.22)
 project(Proj4)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -15,3 +15,6 @@ endfunction()
 
 add_opencv_executable(VidDisplay
         src/vidDisplay.cpp)
+
+add_opencv_executable(augReality
+        src/augReality.cpp)

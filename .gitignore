@@ -1,3 +1,5 @@
 .idea
 cmake-build-debug
 Project 4_ Calibration and Augmented Reality.pdf
+outputs/
+build/
