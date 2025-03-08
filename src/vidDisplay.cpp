@@ -270,7 +270,7 @@ public:
 
         Size frameSize(cap.get(CAP_PROP_FRAME_WIDTH), cap.get(CAP_PROP_FRAME_HEIGHT));
         const float reduction = 0.9;
-        scale_factor = 720.0 / (frameSize.height * reduction);
+        scale_factor = 640.0 / (frameSize.height * reduction);
         targetSize.width = frameSize.width * scale_factor;
         targetSize.height = frameSize.height * scale_factor;
         cout << "Camera initialized with resolution: " << targetSize.width << "x" << targetSize.height << endl;

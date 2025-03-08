@@ -15,3 +15,6 @@ endfunction()
 
 add_opencv_executable(VidDisplay
         src/vidDisplay.cpp)
+
+add_opencv_executable(augReality
+        src/augReality.cpp)
