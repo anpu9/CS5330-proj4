@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
                         {0, 0, 0},             // Origin (center of marker)
                         {markerLength, 0, 0},  // X-axis direction
                         {0, markerLength, 0},  // Y-axis direction
-                        {0, 0, -markerLength}  // Z-axis direction (outward)
+                        {0, 0, markerLength}  // Z-axis direction (outward)
                     };
                     
                     // Project axes onto 2D image plane
