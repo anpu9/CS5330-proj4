@@ -34,4 +34,5 @@ Proj3/
   ./augReality <params_file_path>
    Eg: ./augReality ../outputs/camera_params.yml
   Task 4 - On running the above executable, the calibration parameters saved previously will be read and camera pose will be determined.
+  Task 5 - Press 'p' to toggle corner points display and 'a' to toggle axes display
  ```
