@@ -5,6 +5,61 @@
 using namespace cv;
 using namespace std;
 
+// Constants
+const float MARKER_LENGTH = 0.05;  // Marker size in meters (5 cm), set this approximately as the length of aruco marker side in real life
+const int EDGE_THICKNESS = 3;
+
+// Function to load camera calibration parameters
+bool loadCameraCalibration(const string& filename, Mat& cameraMatrix, Mat& distortionCoeffs) {
+    FileStorage fs(filename, FileStorage::READ);
+    if (!fs.isOpened()) {
+        cerr << "Failed to open camera parameters file: " << filename << endl;
+        return false;
+    }
+    fs["camera_matrix"] >> cameraMatrix;
+    fs["distortion_coefficients"] >> distortionCoeffs;
+    fs.release();
+    return true;
+}
+
+// Function to render 3D axes
+void draw3DAxes(Mat& frame, const Vec3d& rvec, const Vec3d& tvec, const Mat& cameraMatrix, const Mat& distCoeffs) {
+    vector<Point3f> axisPoints = {
+            {0, 0, 0}, {MARKER_LENGTH, 0, 0}, {0, MARKER_LENGTH, 0}, {0, 0, MARKER_LENGTH}
+    };
+
+    vector<Point2f> projectedAxes;
+    projectPoints(axisPoints, rvec, tvec, cameraMatrix, distCoeffs, projectedAxes);
+
+    // Draw axes in different colors
+    line(frame, projectedAxes[0], projectedAxes[1], Scalar(0, 0, 255), 2); // X-axis (Red)
+    line(frame, projectedAxes[0], projectedAxes[2], Scalar(0, 255, 0), 2); // Y-axis (Green)
+    line(frame, projectedAxes[0], projectedAxes[3], Scalar(255, 0, 0), 2); // Z-axis (Blue)
+}
+
+// Function to render 3D tetrahedron
+void drawTetrahedron(Mat& frame, const Vec3d& rvec, const Vec3d& tvec, const Mat& cameraMatrix, const Mat& distCoeffs) {
+    vector<Point3f> tetrahedronPoints = {
+            {-0.4f * MARKER_LENGTH, -0.4f * MARKER_LENGTH, 0},   // Base vertex 1
+            {0.6f * MARKER_LENGTH, -0.4f * MARKER_LENGTH, 0},    // Base vertex 2
+            {0.2f * MARKER_LENGTH, 0.4f * MARKER_LENGTH, 0},     // Base vertex 3
+            {0.3f * MARKER_LENGTH, 0.2f * MARKER_LENGTH, MARKER_LENGTH}  // Apex vertex
+    };
+
+    vector<Point2f> projectedPoints;
+    projectPoints(tetrahedronPoints, rvec, tvec, cameraMatrix, distCoeffs, projectedPoints);
+
+    // Draw base triangle edges
+    line(frame, projectedPoints[0], projectedPoints[1], Scalar(255, 0, 0), EDGE_THICKNESS); // Red
+    line(frame, projectedPoints[1], projectedPoints[2], Scalar(0, 255, 0), EDGE_THICKNESS); // Green
+    line(frame, projectedPoints[2], projectedPoints[0], Scalar(0, 0, 255), EDGE_THICKNESS); // Blue
+
+    // Draw edges to the apex
+    line(frame, projectedPoints[0], projectedPoints[3], Scalar(255, 255, 0), EDGE_THICKNESS); // Cyan
+    line(frame, projectedPoints[1], projectedPoints[3], Scalar(0, 255, 255), EDGE_THICKNESS); // Yellow
+    line(frame, projectedPoints[2], projectedPoints[3], Scalar(255, 0, 255), EDGE_THICKNESS); // Magenta
+}
+
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         cerr << "Usage: ./augReality <path to camera_params.yml>" << endl;
@@ -13,17 +68,9 @@ int main(int argc, char* argv[]) {
     
     string filename = argv[1];
     
-    // Load camera calibration parameters
-    FileStorage fs(filename, FileStorage::READ);
-    if (!fs.isOpened()) {
-        cerr << "Failed to open camera parameters file: " << filename << endl;
-        return -1;
-    }
-    
     Mat camera_matrix, distortion_coeffs;
-    fs["camera_matrix"] >> camera_matrix;
-    fs["distortion_coefficients"] >> distortion_coeffs;
-    fs.release();
+    // Load camera calibration
+    if (!loadCameraCalibration(filename, camera_matrix, distortion_coeffs)) return -1;
 
     // Open video capture
     VideoCapture cap(0); // Use 0 for default camera
@@ -40,6 +87,7 @@ int main(int argc, char* argv[]) {
     // Toggle options for displaying projected points and axes
     bool showPoints = false;
     bool showAxes = false;
+    bool showTetrahedron = false;
 
     while (true) {
         Mat frame;
@@ -56,14 +104,13 @@ int main(int argc, char* argv[]) {
             aruco::drawDetectedMarkers(frame, markerCorners, markerIds);
             
             vector<Vec3d> rvecs(markerIds.size()), tvecs(markerIds.size());
-            float markerLength = 0.05; // Marker size in meters (5 cm), set this approximately as the length of aruco marker side in real life
             
             // Define 3D coordinates of marker corners
             vector<Point3f> objectPoints = {
-                {-markerLength/2, markerLength/2, 0},
-                {markerLength/2, markerLength/2, 0},
-                {markerLength/2, -markerLength/2, 0},
-                {-markerLength/2, -markerLength/2, 0}
+                {-MARKER_LENGTH/2, MARKER_LENGTH/2, 0},
+                {MARKER_LENGTH/2, MARKER_LENGTH/2, 0},
+                {MARKER_LENGTH/2, -MARKER_LENGTH/2, 0},
+                {-MARKER_LENGTH/2, -MARKER_LENGTH/2, 0}
             };
             
             for (size_t i = 0; i < markerIds.size(); i++) {
@@ -82,21 +129,12 @@ int main(int argc, char* argv[]) {
                 // Toggle 3D axis visualization
                 if (showAxes) {
                     // Define 3D axis points
-                    vector<Point3f> axisPoints = {
-                        {0, 0, 0},             // Origin (center of marker)
-                        {markerLength, 0, 0},  // X-axis direction
-                        {0, markerLength, 0},  // Y-axis direction
-                        {0, 0, markerLength}  // Z-axis direction (outward)
-                    };
-                    
-                    // Project axes onto 2D image plane
-                    vector<Point2f> projectedAxes;
-                    projectPoints(axisPoints, rvecs[i], tvecs[i], camera_matrix, distortion_coeffs, projectedAxes);
-                    
-                    // Draw 3D coordinate axes
-                    line(frame, projectedAxes[0], projectedAxes[1], Scalar(0, 0, 255), 2); // X-axis (Red)
-                    line(frame, projectedAxes[0], projectedAxes[2], Scalar(0, 255, 0), 2); // Y-axis (Green)
-                    line(frame, projectedAxes[0], projectedAxes[3], Scalar(255, 0, 0), 2); // Z-axis (Blue)
+                    draw3DAxes(frame, rvecs[i], tvecs[i], camera_matrix, distortion_coeffs);
+                }
+
+                // Render 3D object if 'o' key is pressed
+                if (showTetrahedron) {
+                    drawTetrahedron(frame, rvecs[i], tvecs[i], camera_matrix, distortion_coeffs);
                 }
             }
         }
@@ -108,6 +146,7 @@ int main(int argc, char* argv[]) {
         if (key == 'q') break;   // Quit the program
         else if (key == 'p') showPoints = !showPoints; // Toggle marker corner points
         else if (key == 'a') showAxes = !showAxes; // Toggle 3D axes
+        else if (key == 't') showTetrahedron = !showTetrahedron; // Toggle 3D axes
     }
     
  
