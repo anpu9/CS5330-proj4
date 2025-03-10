@@ -25,7 +25,7 @@ private:
     vector<vector<Point3f>> point_set; // the latest 3D corner set for an image, each element is four corners of a Aruco maker
     vector<vector<vector<Point2f>>> corner_list;  // Stores selected 2D image corners for all images, each element is all image's marker's corner of an images
     vector<vector<vector<Point3f>>> point_list;   // Stores corresponding 3D world points for all images
-
+    int gridColumns = 5; // The column of Aruco markers board, default value is 5
 
     // Constants for window names
     const string WINDOW_VIDEO = "Live";
@@ -35,6 +35,7 @@ private:
     VideoCapture cap;
     const string OUTPUT_DIR = "../outputs/";
     int imageId = 0;
+    int fileId = 0;
     Mode currentMode = Mode::ARUCO;
     aruco::ArucoDetector detector;
     float scale_factor;
@@ -51,7 +52,8 @@ private:
     } imgs;
 
     string generateFilename(const string &prefix = "", const string &suffix = "", const string &extn = ".png") {
-        return OUTPUT_DIR + prefix + to_string(imageId) + suffix + extn;
+        int id = (extn == ".yml") ? fileId : imageId;
+        return OUTPUT_DIR + prefix + to_string(id) + suffix + extn;
     }
      /**
       * @brief Saves the current frame and detected corners for calibration.
@@ -59,7 +61,7 @@ private:
       * @param square_size the size of a target square, by default, is in units of target squares, which is 1
       * @param margin_size the size of a margin between a target square and its neighbor, by default, it is 0.2
       */
-    void saveCalibrationData(int cols, float square_size = 1.0f, float margin_size = 0.2f) {
+    void saveCalibrationData(float square_size = 1.0f, float margin_size = 0.2f) {
         if (corner_set.empty()) {
             cerr << "No valid markers detected. Image not saved for calibration." << endl;
             return;
@@ -67,8 +69,8 @@ private:
         vector<vector<Point3f>> framePoints; // Temporary container for 3D current image points
          for (size_t i = 0; i < corner_set.size(); i++) {
              int marker_id = markerIds[i];  // Get marker ID
-             int grid_x = marker_id % cols;
-             int grid_y = marker_id / cols;
+             int grid_x = marker_id % gridColumns;
+             int grid_y = marker_id / gridColumns;
 
              // Apply margins only after the first row and first column
              float offset_x = grid_x * square_size + (grid_x > 0 ? grid_x * margin_size : 0);
@@ -197,8 +199,8 @@ private:
         fs << "distortion_coefficients" << distortion_coeffs;
         fs << "reprojection_error" << reprojection_error;
         fs.release();
-        
-        cout << "Saved camera parameters to file" << endl;
+
+        cout << "Saved camera parameters to file " << fileId++ << endl;
     }
 
 
@@ -213,7 +215,7 @@ private:
             case Mode::ARUCO:
                 // store the point data
                 // The config is used for marker5x5_1000.png
-                saveCalibrationData(5);
+                saveCalibrationData();
             default:
                 // No additional images to save
                 break;
@@ -253,9 +255,43 @@ private:
             case 'w':
                 saveCameraParameters();
                 break;
+            case 'g':
+                promptGridColumns();
+                break;
             case 'q':
                 exit(0);
         }
+    }
+    /**
+     * @brief Prompts the user to input grid columns
+     */
+    void promptGridColumns() {
+        corner_set.clear();
+        corner_list.clear();
+        point_set.clear();
+        point_list.clear();
+        cout << "Enter number of columns in the ArUco marker grid: ";
+        int cols;
+        cin >> cols;
+        if (cols > 0) {
+            gridColumns = cols;
+            cout << "Grid columns set to: " << gridColumns << endl;
+        } else {
+            cerr << "Invalid column count. Must be a positive integer." << endl;
+        }
+    }
+    /**
+    * @brief initialize a Aruco marker detector
+    */
+    void initializeArucoDetector() {
+        aruco::Dictionary dictionary;
+        aruco::DetectorParameters detectParams;
+        aruco::RefineParameters refineParams;
+        dictionary = aruco::getPredefinedDictionary(aruco::DICT_5X5_1000);
+        detectParams = aruco::DetectorParameters();
+        refineParams = aruco::RefineParameters();
+
+        detector = aruco::ArucoDetector(dictionary, detectParams, refineParams);
     }
 
 public:
@@ -278,19 +314,6 @@ public:
         namedWindow(WINDOW_VIDEO, WINDOW_AUTOSIZE);
 
     }
-    /**
-     * @brief initialize a Aruco marker detector
-     */
-    void initializeArucoDetector() {
-        aruco::Dictionary dictionary;
-        aruco::DetectorParameters detectParams;
-        aruco::RefineParameters refineParams;
-        dictionary = aruco::getPredefinedDictionary(aruco::DICT_5X5_1000);
-        detectParams = aruco::DetectorParameters();
-        refineParams = aruco::RefineParameters();
-
-        detector = aruco::ArucoDetector(dictionary, detectParams, refineParams);
-    }
 
     /**
      * @brief Main application loop.
@@ -299,8 +322,12 @@ public:
         cout << "Default: Enable Aruco Marker detection \n"
              << "Videos controls:\n"
              << " 's' - Save photo\n"
+             << " 'c' - Calibrate camera\n"
+             << " 'w' - Save camera parameters\n"
+                << " 'g' - Set aruco marker grid columns\n"
              << " 'q' - Quit\n";
-
+        // Prompt for grid columns at startup
+        promptGridColumns();
         try {
             initializeArucoDetector();
             while (true) {
