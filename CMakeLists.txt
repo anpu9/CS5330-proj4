@@ -18,3 +18,6 @@ add_opencv_executable(VidDisplay
 
 add_opencv_executable(augReality
         src/augReality.cpp)
+
+add_opencv_executable(featureDetection
+        src/featureDetect.cpp)
