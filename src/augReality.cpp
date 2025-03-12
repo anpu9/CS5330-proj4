@@ -1,3 +1,9 @@
+/*
+ * Authors: Yuyang Tian and Arun Mekkad
+ * Date: 2025/2/28
+ * Purpose: Augmented reality with ArUco marker detection and 3D object rendering
+ */
+
 #include <opencv2/opencv.hpp>
 #include <opencv2/aruco.hpp>
 #include <iostream>
