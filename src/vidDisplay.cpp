@@ -141,8 +141,6 @@
  
          vector<Mat> rvecs, tvecs;
          int flags = CALIB_FIX_ASPECT_RATIO | CALIB_RATIONAL_MODEL;
-         if(point_list.size() > 10) flags |= CALIB_USE_INTRINSIC_GUESS;
- 
          
          // Convert point_list to vector<vector<Point3f>>
          vector<vector<Point3f>> object_points;

@@ -21,7 +21,7 @@ const String FACE_CASCADE_PATH = "../object/haarcascade_frontalface_alt2.xml"; /
 bool showPoints = false;
 bool showAxes = false;
 bool showTetrahedron = false;
-bool showFaceCube = false;
+bool showFaceHat = false;
 
 vector<Rect> recentFaces;
 const int numFramesToAverage = 7; // Adjust this value as needed
@@ -179,7 +179,7 @@ int main(int argc, char* argv[]) {
         vector<vector<Point2f>> markerCorners;
         detector.detectMarkers(frame, markerCorners, markerIds);
 
-        if (!markerIds.empty() && !showFaceCube) {
+        if (!markerIds.empty() && !showFaceHat) {
             // Draw detected markers
             aruco::drawDetectedMarkers(frame, markerCorners, markerIds);
             
