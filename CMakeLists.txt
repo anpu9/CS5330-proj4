@@ -51,8 +51,8 @@ function(add_opencv_depth_pcl_executable exe_name)
     target_compile_definitions(${exe_name} PRIVATE ${PCL_DEFINITIONS})
 endfunction()
 
-add_opencv_executable(cameraCalibration
-        src/vidDisplay.cpp)
+add_opencv_executable(calibration
+        src/calibrate.cpp)
 
 add_opencv_executable(augReality
         src/augReality.cpp)
