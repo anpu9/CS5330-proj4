@@ -50,7 +50,7 @@
  }
  
  int main() {
-     cap.open(2); // Open specified camera
+     cap.open(0); // Open specified camera
      if (!cap.isOpened()) {
          cerr << "Error: Unable to open the camera." << endl;
          return -1;
