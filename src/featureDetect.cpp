@@ -57,7 +57,7 @@ void detectSIFTFeatures() {
 }
 
 int main() {
-    cap.open(0); // Open default camera
+    cap.open(2); // Open default camera
     if (!cap.isOpened()) {
         cerr << "Error: Unable to open the camera." << endl;
         return -1;

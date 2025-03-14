@@ -258,7 +258,7 @@ int main(int argc, char *argv[]) {
         cerr << "Usage: ./augReality <path to camera_params.yml> <path to pcd file>" << endl;
         return -1;
     }
-    string objectFilePath = "../object/pikachu.obj"; // Try loading from directory
+    string objectFilePath = "../object/object.obj"; // Try loading from directory
     ObjectModel loadedObject = LoadObj(objectFilePath);
 
     if (loadedObject.vertices.empty()) {
@@ -338,7 +338,11 @@ int main(int argc, char *argv[]) {
             for (size_t i = 0; i < markerIds.size(); i++) {
                 // Estimate camera pose relative to marker
                 solvePnP(objectPoints, markerCorners[i], camera_matrix, distortion_coeffs, rvecs[i], tvecs[i]);
-
+                
+                cout << "Marker ID: " << markerIds[i] << endl;
+                cout << "Rotation Vector (rvec): " << rvecs[i] << endl;
+                cout << "Translation Vector (tvec): " << tvecs[i] << endl;
+                cout << "-------------------------" << endl;
                 // Toggle projected marker points
                 if (showPoints) {
                     vector<Point2f> projectedPoints;
