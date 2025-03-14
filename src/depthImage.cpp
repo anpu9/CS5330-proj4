@@ -2,7 +2,7 @@
   Bruce A. Maxwell
   January 2025
 
-  Modified by Yuyang Tian.
+  Modified by Yuyang Tian and Arun Mekkad.
   User type 's' to show depth map generate 3D point cloud of an image
 */
 
