@@ -56,8 +56,8 @@ Proj3/
 - **Usage**:
 
   ```
-  ./augReality <params_file_path>
-  Eg: ./augReality ../outputs/camera_params.yml
+  ./augReality <params_file_path> <pcd file>
+  Eg: ./augReality ../outputs/camera_params.yml ../obj/matcha.pcd
   ```
 
 🔹 **Tasks**:
@@ -80,7 +80,7 @@ Proj3/
 
 ### Extension for 3D point cloud
 
-### 4. da2Video
+### 4. DepthImage
 
 **Description:** 
 
@@ -93,8 +93,8 @@ Proj3/
 * **Usage**:
 
 ```
-./da2PointCloud <path to camera_params.yml>
-e.g.  ./da2PointCloud outputs/camera_0_params.yml
+./DepthImage <path to camera_params.yml>
+e.g.  ./DepthImage outputs/camera_0_params.yml
 ```
 
 #### 5. PointCloud
