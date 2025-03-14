@@ -10,10 +10,16 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 #include "../include/pclUtil.h"
+#include <fstream>
 #include <iostream>
 
 using namespace cv;
 using namespace std;
+
+struct ObjectModel {
+    std::vector<cv::Point3f> vertices;
+    std::vector<std::vector<int>> faces;
+};
 
 // Constants
 const float MARKER_LENGTH = 0.05f;  // Marker size in meters (5 cm), set this approximately as the length of aruco marker side in real life
@@ -26,10 +32,26 @@ bool showPoints = false;
 bool showAxes = false;
 bool showTetrahedron = false;
 bool showFaceHat = false;
+bool showObjectModel = false;
 
 vector<Rect> recentFaces;
 const int numFramesToAverage = 7; // Adjust this value as needed
 
+// Store loaded object vertices
+vector<Point3f> objectVertices;
+
+// Function to load camera calibration parameters
+bool loadCameraCalibration(const string& filename, Mat& cameraMatrix, Mat& distortionCoeffs) {
+    FileStorage fs(filename, FileStorage::READ);
+    if (!fs.isOpened()) {
+        cerr << "Failed to open camera parameters file: " << filename << endl;
+        return false;
+    }
+    fs["camera_matrix"] >> cameraMatrix;
+    fs["distortion_coefficients"] >> distortionCoeffs;
+    fs.release();
+    return true;
+}
 
 // Function to render 3D axes
 void draw3DAxes(Mat& frame, const Vec3d& rvec, const Vec3d& tvec, const Mat& cameraMatrix, const Mat& distCoeffs) {
@@ -186,11 +208,65 @@ void drawFaceHat(Mat& frame, const Rect& face, const Mat& cameraMatrix, const Ma
     rectangle(frame, face, Scalar(255, 0, 255), 2);
 }
 
+ObjectModel LoadObj(const string& path) {
+    ObjectModel model;
+    ifstream file(path);
+    if (!file.is_open()) {
+        cerr << "Could not open OBJ file: " << path << endl;
+        return model;
+    }
+    string line;
+    while (getline(file, line)) {
+        if (line.substr(0, 2) == "v ") {
+            stringstream ss(line.substr(2));
+            float x, y, z;
+            ss >> x >> y >> z;
+            model.vertices.push_back(cv::Point3f(x, y, z));
+        } else if (line.substr(0, 2) == "f ") {
+            stringstream ss(line.substr(2));
+            std::vector<int> face;
+            string segment;
+            while (getline(ss, segment, ' ')) {
+                stringstream segmentSS(segment);
+                string indexStr;
+                getline(segmentSS, indexStr, '/'); // Get only the vertex index
+                try {
+                    face.push_back(stoi(indexStr) - 1); // OBJ indices are 1-based
+                } catch (const std::invalid_argument& e) {
+                    cerr << "Invalid vertex index: " << indexStr << endl;
+                } catch (const std::out_of_range& e) {
+                    cerr << "Vertex index out of range: " << indexStr << endl;
+                }
+            }
+            if (!face.empty()) {
+                model.faces.push_back(face);
+            }
+        }
+        
+    }
+    file.close();
+
+    // Scale the loaded vertices
+    for (auto& vertex : model.vertices) {
+        vertex *= MARKER_LENGTH/3;
+    }
+    return model;
+}
+
 int main(int argc, char *argv[]) {
     if (argc < 3) {
         cerr << "Usage: ./augReality <path to camera_params.yml> <path to pcd file>" << endl;
         return -1;
     }
+    string objectFilePath = "../object/pikachu.obj"; // Try loading from directory
+    ObjectModel loadedObject = LoadObj(objectFilePath);
+
+    if (loadedObject.vertices.empty()) {
+        cerr << "No object vertices loaded. Please check the file path." << endl;
+    } else {
+        cout << "Loaded " << loadedObject.vertices.size() << " vertices and " << loadedObject.faces.size() << " faces from the OBJ file." << endl;
+    }
+  
     string filename = argv[1];
     string pcdfile = argv[2];
 
@@ -286,6 +362,31 @@ int main(int argc, char *argv[]) {
                 if (showPointCloud) {
                     drawPointCloudOnFrame(frame, cloud, rvecs[i], tvecs[i], camera_matrix, distortion_coeffs);
                 }
+
+                 // Render loaded OBJ model as wireframe
+                if (showObjectModel && !loadedObject.vertices.empty() && !loadedObject.faces.empty()) {
+                    for (const auto& face : loadedObject.faces) {
+                        if (face.size() >= 2) {
+                            vector<Point2f> projectedPoints;
+                            vector<Point3f> faceVertices;
+                            for (int vertexIndex : face) {
+                                if (vertexIndex >= 0 && vertexIndex < loadedObject.vertices.size()) {
+                                    faceVertices.push_back(loadedObject.vertices[vertexIndex]);
+                                } else {
+                                    cerr << "Warning: Vertex index out of bounds." << endl;
+                                }
+                            }
+                            projectPoints(faceVertices, rvecs[i], tvecs[i], camera_matrix, distortion_coeffs, projectedPoints);
+
+                            for (size_t j = 0; j < projectedPoints.size(); ++j) {
+                                Scalar color = (j % 2 == 0) ? Scalar(255, 255, 0) : Scalar(0, 255, 255); // Alternate colors
+                                line(frame, projectedPoints[j], projectedPoints[(j + 1) % projectedPoints.size()], color, EDGE_THICKNESS);
+                            }
+                        }
+                    }
+                }
+            
+        
             }
         }
 
@@ -334,6 +435,7 @@ int main(int argc, char *argv[]) {
         else if (key == 't') showTetrahedron = !showTetrahedron; // Toggle 3D axes
         else if (key == 'f') showFaceHat = !showFaceHat; // Toggle face cube
         else if (key == 'c') showPointCloud = !showPointCloud; // Toggle 3D axes
+        else if (key == 'o') showObjectModel = !showObjectModel; // Toggle obj model rendering
     }
 
     cap.release();
