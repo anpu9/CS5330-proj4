@@ -1,6 +1,6 @@
 # Calibration and Augmented Reality
-
-## Video link : 
+## Time travel days used : 1
+## Video link : https://drive.google.com/drive/folders/1Stjw9mMDEN360IHDJUDq_YbTjbY992HQ
 
 ## 👥 Team Members
 1. **Yuyang Tian**
@@ -15,16 +15,17 @@
 Proj3/
    ├── include/              # 📁 Header files
    ├── src/                  # 📁 Source files - most of them are executables.
-   ├── markers          # 🖼️ Image set for camera calibration
+   ├── markers               # 🖼️ Image set for camera calibration
+   ├── object                # 🪆 OBJ file and Point Cloud filefor 3D rendering
    ├── CMakeLists.txt        # ⚙️ CMake build configuration
    ├── README.md             # 📖 Project documentation
 ```
 | **Filename**              | **Description**                                              |
-| ------------------------- | ------------------------------------------------------------ |
+|---------------------------| ------------------------------------------------------------ |
 | `calibrate.cpp`           | Live-stream video application, enabling camera calibration   |
 | `augReality.cpp`          | Augmented reality with ArUco marker detection and 3D object rendering |
 | `featureDetect.cpp`       | Real-time SIFT feature detection with adjustable threshold   |
-| `da2Video.cpp`            | Generates a 3D point cloud from depth data                   |
+| `depthImage.cpp`          | Generates a 3D point cloud from depth data                   |
 | `pcdUtil.h / pcdUtil.cpp` | Supports 3D Point Cloud generation/visualization logic       |
 | `pointCloudDisplay.cpp`   | Point cloud visualization from a PCD file using command-line input |
 
@@ -67,6 +68,7 @@ Proj3/
 - **Task 6**: Press **'t'** to toggle tetrahedron display.
 - **Extension - OBJ loading** : Press **'o'** to toggle rendering of an OBJ file.
 - **Extension - Hat over faces** : Press **'f'** to toggle display of a 3D cone shaped hat    over detected faces.
+- **Extension - 3D Point Cloud** : Press **'c'** to toggle display of a 3D Point Cloud of a Matcha latte cup.
 
 #### **3.featureDetection**
 
