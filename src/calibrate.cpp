@@ -122,6 +122,7 @@
      }
  
      /**
+<<<<<<< HEAD
      * @brief Performs camera calibration using collected points
      */
      void calibrateCamera() {
@@ -181,6 +182,124 @@
  
      /**
      * @brief Saves camera parameters to file
+=======
+      * @brief Saves the current frame and detected corners for calibration.
+      * @param cols the cols of markers in the calibration images
+      * @param square_size the size of a target square, by default, is in units of target squares, which is 1
+      * @param margin_size the size of a margin between a target square and its neighbor, by default, it is 0.2
+      */
+    void saveCalibrationData(float square_size = 1.0f, float margin_size = 0.2f) {
+        if (corner_set.empty()) {
+            cerr << "No valid markers detected. Image not saved for calibration." << endl;
+            return;
+        }
+        vector<vector<Point3f>> framePoints; // Temporary container for 3D current image points
+         for (size_t i = 0; i < corner_set.size(); i++) {
+             int marker_id = markerIds[i];  // Get marker ID
+             int grid_x = marker_id % gridColumns;
+             int grid_y = marker_id / gridColumns;
+
+             // Apply margins only after the first row and first column
+             float offset_x = grid_x * square_size + (grid_x > 0 ? grid_x * margin_size : 0);
+             float offset_y = -grid_y * square_size - (grid_y > 0 ? grid_y * margin_size : 0);
+
+             vector<Point3f> markerPoints;
+             markerPoints.emplace_back(Point3f(offset_x, offset_y, 0));   // Top-left
+             markerPoints.emplace_back(Point3f(offset_x + square_size, offset_y, 0));   // Top-right
+             markerPoints.emplace_back(Point3f(offset_x + square_size, offset_y - square_size, 0));   // Bottom-right
+             markerPoints.emplace_back(Point3f(offset_x, offset_y - square_size, 0));    // Bottom-left
+
+             framePoints.emplace_back(markerPoints);
+         }
+
+         // add the 2d frame to corner_list
+        corner_list.emplace_back(corner_set);
+        // add the 3d frame to point_list
+        point_list.emplace_back(framePoints);
+    }
+
+    /**
+    * @brief Performs camera calibration using collected points
+    */
+    void calibrateCamera() {
+        if (point_list.size() < 5) {
+            cerr << "Need at least 5 calibration images. Current: " 
+                << point_list.size() << endl;
+            return;
+        }
+
+        // Initialize camera matrix with guess
+        camera_matrix = Mat::eye(3, 3, CV_64F);
+        camera_matrix.at<double>(0, 2) = targetSize.width / 2.0;
+        camera_matrix.at<double>(1, 2) = targetSize.height / 2.0;
+
+        // Initialize distortion coefficients (5 parameters)
+        distortion_coeffs = Mat::zeros(5, 1, CV_64F);
+
+        vector<Mat> rvecs, tvecs;
+        int flags = CALIB_FIX_ASPECT_RATIO | CALIB_RATIONAL_MODEL;
+        if(point_list.size() > 10) flags |= CALIB_USE_INTRINSIC_GUESS;
+
+        
+        // Convert point_list to vector<vector<Point3f>>
+        vector<vector<Point3f>> object_points;
+        for (auto& img_points : point_list) {
+            vector<Point3f> img_object_points;
+            for (auto& marker_points : img_points) {
+                img_object_points.insert(img_object_points.end(), 
+                    marker_points.begin(), marker_points.end());
+            }
+            object_points.push_back(img_object_points);
+        }
+
+        // Convert corner_list to vector<vector<Point2f>>
+        vector<vector<Point2f>> image_points;
+        for (auto& img_corners : corner_list) {
+            vector<Point2f> img_image_points;
+            for (auto& marker_corners : img_corners) {
+                img_image_points.insert(img_image_points.end(),
+                    marker_corners.begin(), marker_corners.end());
+            }
+            image_points.push_back(img_image_points);
+        }
+
+        // Perform calibration
+        reprojection_error = ::calibrateCamera(
+            object_points, image_points, targetSize,
+            camera_matrix, distortion_coeffs,
+            rvecs, tvecs, flags
+        );
+
+        cout << "Calibration complete!\n";
+        cout << "Reprojection error: " << reprojection_error << endl;
+        cout << "Camera matrix:\n" << camera_matrix << endl;
+        cout << "Distortion coefficients:\n" << distortion_coeffs << endl;
+        
+        calibrated = true;
+    }
+
+    /**
+    * @brief Saves camera parameters to file
+    */
+    void saveCameraParameters() {
+        if (!calibrated) {
+            cerr << "Camera not calibrated yet!" << endl;
+            return;
+        }
+
+        FileStorage fs(generateFilename("camera_", "_params", ".yml"), FileStorage::WRITE);
+        fs << "camera_matrix" << camera_matrix;
+        fs << "distortion_coefficients" << distortion_coeffs;
+        fs << "reprojection_error" << reprojection_error;
+        fs.release();
+
+        cout << "Saved camera parameters to file " << fileId++ << endl;
+    }
+
+
+    /**
+     * @brief Saves the current frame and processed frame to disk.
+>>>>>>> cf1880f (- clean debug print)
      */
      void saveCameraParameters() {
          if (!calibrated) {
