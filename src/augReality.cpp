@@ -1,13 +1,30 @@
+/*
+ * Authors: Yuyang Tian and Arun Mekkad
+ * Date: 2025/3/5
+ * Purpose: Implementation of augmented reality
+ */
+
 #include <opencv2/opencv.hpp>
 #include <opencv2/aruco.hpp>
+#include <opencv2/objdetect.hpp>
 #include <iostream>
 
 using namespace cv;
 using namespace std;
 
 // Constants
-const float MARKER_LENGTH = 0.05;  // Marker size in meters (5 cm), set this approximately as the length of aruco marker side in real life
+const float MARKER_LENGTH = 0.05f;  // Marker size in meters (5 cm), set this approximately as the length of aruco marker side in real life
 const int EDGE_THICKNESS = 3;
+const String FACE_CASCADE_PATH = "../object/haarcascade_frontalface_alt2.xml"; // Path to the Haar Cascade XML file for face detection
+
+// Toggle options for displaying projected points and axes
+bool showPoints = false;
+bool showAxes = false;
+bool showTetrahedron = false;
+bool showFaceCube = false;
+
+vector<Rect> recentFaces;
+const int numFramesToAverage = 7; // Adjust this value as needed
 
 // Function to load camera calibration parameters
 bool loadCameraCalibration(const string& filename, Mat& cameraMatrix, Mat& distortionCoeffs) {
@@ -60,6 +77,67 @@ void drawTetrahedron(Mat& frame, const Vec3d& rvec, const Vec3d& tvec, const Mat
     line(frame, projectedPoints[2], projectedPoints[3], Scalar(255, 0, 255), EDGE_THICKNESS); // Magenta
 }
 
+void drawFaceHat(Mat& frame, const Rect& face, const Mat& cameraMatrix, const Mat& distCoeffs) {
+    float faceWidth = face.width;
+    float faceHeight = face.height;
+    float hatBaseRadius = 0.8 * faceWidth;
+    float hatHeight = faceHeight;
+    float hatZOffset = -0.7 * faceWidth; // Move the hat away from the camera
+
+    vector<Point3f> faceObjectPoints = {
+        {-0.5f * faceWidth, -0.5f * faceHeight, 0},
+        { 0.5f * faceWidth, -0.5f * faceHeight, 0},
+        { 0.5f * faceWidth,  0.5f * faceHeight, 0},
+        {-0.5f * faceWidth,  0.5f * faceHeight, 0}
+    };
+
+    vector<Point2f> faceImagePoints = {
+        Point2f(face.x, face.y),
+        Point2f(face.x + faceWidth, face.y),
+        Point2f(face.x + faceWidth, face.y + faceHeight),
+        Point2f(face.x, face.y + faceHeight)
+    };
+
+    Mat rvec, tvec;
+    solvePnP(faceObjectPoints, faceImagePoints, cameraMatrix, distCoeffs, rvec, tvec);
+
+    vector<Point3f> hatPoints3D;
+    int numPoints = 30;
+    // Base circle points
+    float baseCenterY = 0.5f * faceHeight;
+    float hatBaseYInFaceFrame = 0.2f * faceHeight;
+    for (int i = 0; i < numPoints; ++i) {
+        float angle = 2.0f * CV_PI * i / numPoints;
+        hatPoints3D.push_back(Point3f(hatBaseRadius * cos(angle), -(hatBaseYInFaceFrame + 0.3 * hatHeight), hatBaseRadius * sin(angle) + hatZOffset)); // Adjusted Y and added Z
+    }
+    // Apex point
+    hatPoints3D.push_back(Point3f(0, -(hatBaseYInFaceFrame + hatHeight + 0.2 * hatHeight), hatZOffset));
+
+    vector<Point2f> projectedHatPoints;
+    projectPoints(hatPoints3D, rvec, tvec, cameraMatrix, distCoeffs, projectedHatPoints);
+
+    Scalar hatColor = Scalar(0, 0, 255);
+    int thickness = 2;
+
+    // Draw the base circle
+    for (int i = 0; i < numPoints - 1; ++i) {
+        line(frame, projectedHatPoints[i], projectedHatPoints[i + 1], hatColor, thickness);
+    }
+    line(frame, projectedHatPoints[numPoints - 1], projectedHatPoints[0], hatColor, thickness);
+
+    // Draw lines from the base to the apex
+    Point2f apexPoint = projectedHatPoints[numPoints];
+    for (int i = 0; i < numPoints; ++i) {
+        if(i % 2 == 0) // Draw every second line to reduce clutter
+            hatColor = Scalar(0, 255, 0); // Change color for every second line
+        else
+            hatColor = Scalar(255, 0, 0); 
+        line(frame, projectedHatPoints[i], apexPoint, hatColor, thickness);
+    }
+
+    rectangle(frame, face, Scalar(255, 0, 255), 2);
+}
+
 int main(int argc, char* argv[]) {
     if (argc < 2) {
         cerr << "Usage: ./augReality <path to camera_params.yml>" << endl;
@@ -73,7 +151,7 @@ int main(int argc, char* argv[]) {
     if (!loadCameraCalibration(filename, camera_matrix, distortion_coeffs)) return -1;
 
     // Open video capture
-    VideoCapture cap(0); // Use 0 for default camera
+    VideoCapture cap(2); // Use 0 for default camera
     if (!cap.isOpened()) {
         cerr << "Failed to open camera." << endl;
         return -1;
@@ -84,10 +162,12 @@ int main(int argc, char* argv[]) {
     aruco::DetectorParameters detectParams;
     aruco::ArucoDetector detector(dictionary, detectParams);
 
-    // Toggle options for displaying projected points and axes
-    bool showPoints = false;
-    bool showAxes = false;
-    bool showTetrahedron = false;
+    // Face detection setup
+    CascadeClassifier faceCascade;
+    if (!faceCascade.load(FACE_CASCADE_PATH)) {
+        cerr << "Error loading face cascade" << endl;
+        return -1;
+    }
 
     while (true) {
         Mat frame;
@@ -99,7 +179,7 @@ int main(int argc, char* argv[]) {
         vector<vector<Point2f>> markerCorners;
         detector.detectMarkers(frame, markerCorners, markerIds);
 
-        if (!markerIds.empty()) {
+        if (!markerIds.empty() && !showFaceCube) {
             // Draw detected markers
             aruco::drawDetectedMarkers(frame, markerCorners, markerIds);
             
@@ -138,8 +218,43 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
-        
-        imshow("Camera Pose Estimation", frame);
+
+        if (showFaceHat) {
+            Mat gray;
+            cvtColor(frame, gray, COLOR_BGR2GRAY);
+            equalizeHist(gray, gray);
+
+            vector<Rect> faces;
+            faceCascade.detectMultiScale(gray, faces, 1.1, 3, 0, Size(100, 100));
+
+            if (!faces.empty()) {
+                Rect currentFace = faces[0]; // Consider the first detected face
+
+                // Simple averaging of face rectangles
+                recentFaces.push_back(currentFace);
+                if (recentFaces.size() > numFramesToAverage) {
+                    recentFaces.erase(recentFaces.begin());
+                }
+
+                if (!recentFaces.empty()) {
+                    int avgX = 0, avgY = 0, avgWidth = 0, avgHeight = 0;
+                    for (const auto& rect : recentFaces) {
+                        avgX += rect.x;
+                        avgY += rect.y;
+                        avgWidth += rect.width;
+                        avgHeight += rect.height;
+                    }
+                    Rect averagedFace(avgX / recentFaces.size(), avgY / recentFaces.size(),
+                                      avgWidth / recentFaces.size(), avgHeight / recentFaces.size());
+                    drawFaceHat(frame, averagedFace, camera_matrix, distortion_coeffs);
+                } else {
+                    drawFaceHat(frame, currentFace, camera_matrix, distortion_coeffs); // Fallback if no recent faces
+                }
+            } else {
+                recentFaces.clear(); // Clear if no face is detected
+            }
+        }
+        imshow("Augmented Reality", frame);
         
         // Handle keypress events
         char key = waitKey(30);
@@ -147,9 +262,9 @@ int main(int argc, char* argv[]) {
         else if (key == 'p') showPoints = !showPoints; // Toggle marker corner points
         else if (key == 'a') showAxes = !showAxes; // Toggle 3D axes
         else if (key == 't') showTetrahedron = !showTetrahedron; // Toggle 3D axes
+        else if (key == 'f') showFaceHat = !showFaceHat; // Toggle face cube
     }
     
- 
     cap.release();
     destroyAllWindows();
     return 0;
