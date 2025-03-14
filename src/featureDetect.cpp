@@ -1,3 +1,9 @@
+/*
+ * Authors: Arun Mekkad and Yuyang Tian
+ * Date: 2025/2/28
+ * Purpose: Real-time SIFT feature detection with adjustable contrast threshold
+ */
+
 #include <opencv2/opencv.hpp>
 #include <opencv2/features2d.hpp>
 #include <iostream>
