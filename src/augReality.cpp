@@ -24,7 +24,6 @@ struct ObjectModel {
 // Constants
 const float MARKER_LENGTH = 0.05f;  // Marker size in meters (5 cm), set this approximately as the length of aruco marker side in real life
 const int EDGE_THICKNESS = 3;
-const float DEPTH_OFFSET = 0.8;
 const String FACE_CASCADE_PATH = "../object/haarcascade_frontalface_alt2.xml"; // Path to the Haar Cascade XML file for face detection
 
 // Toggle options for displaying projected points and axes
@@ -142,7 +141,7 @@ void drawPointCloudOnFrame(Mat &frame, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cl
         for (size_t i = 0; i < imagePoints.size(); ++i) {
 //            imagePoints[i].x += 10;
             imagePoints[i].y -= 55;
-            circle(frame, imagePoints[i], 1, Scalar(cloud->points[i].r, cloud->points[i].g, cloud->points[i].b), -1);
+            circle(frame, imagePoints[i], 1, Scalar(cloud->points[i].b, cloud->points[i].g, cloud->points[i].r), -1);
         }
     }
 }
