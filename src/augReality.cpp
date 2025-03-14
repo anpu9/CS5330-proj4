@@ -1,12 +1,15 @@
 /*
  * Authors: Yuyang Tian and Arun Mekkad
- * Date: 2025/3/5
- * Purpose: Implementation of augmented reality
+ * Date: 2025/2/28
+ * Purpose: Augmented reality with ArUco marker detection and 3D object rendering
  */
 
 #include <opencv2/opencv.hpp>
 #include <opencv2/aruco.hpp>
 #include <opencv2/objdetect.hpp>
+#include <pcl/io/pcd_io.h>
+#include <pcl/point_types.h>
+#include "../include/pclUtil.h"
 #include <iostream>
 
 using namespace cv;
@@ -15,29 +18,18 @@ using namespace std;
 // Constants
 const float MARKER_LENGTH = 0.05f;  // Marker size in meters (5 cm), set this approximately as the length of aruco marker side in real life
 const int EDGE_THICKNESS = 3;
+const float DEPTH_OFFSET = 0.8;
 const String FACE_CASCADE_PATH = "../object/haarcascade_frontalface_alt2.xml"; // Path to the Haar Cascade XML file for face detection
 
 // Toggle options for displaying projected points and axes
 bool showPoints = false;
 bool showAxes = false;
 bool showTetrahedron = false;
-bool showFaceCube = false;
+bool showFaceHat = false;
 
 vector<Rect> recentFaces;
 const int numFramesToAverage = 7; // Adjust this value as needed
 
-// Function to load camera calibration parameters
-bool loadCameraCalibration(const string& filename, Mat& cameraMatrix, Mat& distortionCoeffs) {
-    FileStorage fs(filename, FileStorage::READ);
-    if (!fs.isOpened()) {
-        cerr << "Failed to open camera parameters file: " << filename << endl;
-        return false;
-    }
-    fs["camera_matrix"] >> cameraMatrix;
-    fs["distortion_coefficients"] >> distortionCoeffs;
-    fs.release();
-    return true;
-}
 
 // Function to render 3D axes
 void draw3DAxes(Mat& frame, const Vec3d& rvec, const Vec3d& tvec, const Mat& cameraMatrix, const Mat& distCoeffs) {
@@ -77,6 +69,62 @@ void drawTetrahedron(Mat& frame, const Vec3d& rvec, const Vec3d& tvec, const Mat
     line(frame, projectedPoints[2], projectedPoints[3], Scalar(255, 0, 255), EDGE_THICKNESS); // Magenta
 }
 
+// Function to project object 3D points onto the video frame
+void drawPointCloudOnFrame(Mat &frame, pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud,
+                           const Vec3d &rvec, const Vec3d &tvec,
+                           const Mat &cameraMatrix, const Mat &distCoeffs) {
+    vector<Point3f> objectPoints;
+    vector<Point2f> imagePoints;
+
+    // Fix rotation misalignment by applying correction
+    Mat rotationMatrix;
+    Rodrigues(rvec, rotationMatrix);
+    double angleX = 80 * CV_PI / 180.0;
+    double angleY = 0 * CV_PI / 180.0;
+    double angleZ = 10 * CV_PI / 180.0;
+    Mat Rx = (Mat_<double>(3, 3) <<
+                                 1, 0, 0,
+            0, cos(angleX), -sin(angleX),
+            0, sin(angleX), cos(angleX)
+    );
+    Mat Ry = (Mat_<double>(3, 3) <<
+                                 cos(angleY), 0, sin(angleY),
+            0, 1, 0,
+            -sin(angleY), 0, cos(angleY)
+    );
+    Mat Rz = (Mat_<double>(3, 3) <<
+                                 cos(angleZ), -sin(angleZ), 0,
+            sin(angleZ), cos(angleZ), 0,
+            0, 0, 1
+    );
+    Mat correctionMatrix = Rz * Ry * Rx;  // Apply X, Y, Z rotation
+    Rodrigues(rvec, rotationMatrix);
+    rotationMatrix = rotationMatrix * correctionMatrix;  // Apply combined rotation
+
+
+//    // Adjust translation (move object closer to the marker)
+    Vec3d adjustedTvec = tvec;
+    adjustedTvec[0] += 0.1;
+    adjustedTvec[1] -= 0.1;
+    adjustedTvec[2] -= 1.5;
+
+    // Convert point cloud into objectPoints with corrected depth
+    for (const auto &point: cloud->points) {
+        objectPoints.push_back(Point3f(point.x - 0.2 , point.y - 0.2, point.z -0.2));
+    }
+
+    if (!objectPoints.empty()) {
+        projectPoints(objectPoints, rotationMatrix, adjustedTvec, cameraMatrix, distCoeffs, imagePoints);
+
+        // Draw projected 3D points on the video frame
+        for (size_t i = 0; i < imagePoints.size(); ++i) {
+//            imagePoints[i].x += 10;
+            imagePoints[i].y -= 55;
+            circle(frame, imagePoints[i], 1, Scalar(cloud->points[i].r, cloud->points[i].g, cloud->points[i].b), -1);
+        }
+    }
+}
+
 void drawFaceHat(Mat& frame, const Rect& face, const Mat& cameraMatrix, const Mat& distCoeffs) {
     float faceWidth = face.width;
     float faceHeight = face.height;
@@ -85,17 +133,17 @@ void drawFaceHat(Mat& frame, const Rect& face, const Mat& cameraMatrix, const Ma
     float hatZOffset = -0.7 * faceWidth; // Move the hat away from the camera
 
     vector<Point3f> faceObjectPoints = {
-        {-0.5f * faceWidth, -0.5f * faceHeight, 0},
-        { 0.5f * faceWidth, -0.5f * faceHeight, 0},
-        { 0.5f * faceWidth,  0.5f * faceHeight, 0},
-        {-0.5f * faceWidth,  0.5f * faceHeight, 0}
+            {-0.5f * faceWidth, -0.5f * faceHeight, 0},
+            { 0.5f * faceWidth, -0.5f * faceHeight, 0},
+            { 0.5f * faceWidth,  0.5f * faceHeight, 0},
+            {-0.5f * faceWidth,  0.5f * faceHeight, 0}
     };
 
     vector<Point2f> faceImagePoints = {
-        Point2f(face.x, face.y),
-        Point2f(face.x + faceWidth, face.y),
-        Point2f(face.x + faceWidth, face.y + faceHeight),
-        Point2f(face.x, face.y + faceHeight)
+            Point2f(face.x, face.y),
+            Point2f(face.x + faceWidth, face.y),
+            Point2f(face.x + faceWidth, face.y + faceHeight),
+            Point2f(face.x, face.y + faceHeight)
     };
 
     Mat rvec, tvec;
@@ -131,27 +179,30 @@ void drawFaceHat(Mat& frame, const Rect& face, const Mat& cameraMatrix, const Ma
         if(i % 2 == 0) // Draw every second line to reduce clutter
             hatColor = Scalar(0, 255, 0); // Change color for every second line
         else
-            hatColor = Scalar(255, 0, 0); 
+            hatColor = Scalar(255, 0, 0);
         line(frame, projectedHatPoints[i], apexPoint, hatColor, thickness);
     }
 
     rectangle(frame, face, Scalar(255, 0, 255), 2);
 }
 
-int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        cerr << "Usage: ./augReality <path to camera_params.yml>" << endl;
+int main(int argc, char *argv[]) {
+    if (argc < 3) {
+        cerr << "Usage: ./augReality <path to camera_params.yml> <path to pcd file>" << endl;
         return -1;
     }
-    
     string filename = argv[1];
-    
+    string pcdfile = argv[2];
+
     Mat camera_matrix, distortion_coeffs;
     // Load camera calibration
-    if (!loadCameraCalibration(filename, camera_matrix, distortion_coeffs)) return -1;
+    if (!loadCameraCalibration(filename, camera_matrix, distortion_coeffs)) {
+        cerr << "Failed to load camera calibration! " << endl;
+        return -1;
+    }
 
     // Open video capture
-    VideoCapture cap(2); // Use 0 for default camera
+    VideoCapture cap(0); // Use 0 for default camera
     if (!cap.isOpened()) {
         cerr << "Failed to open camera." << endl;
         return -1;
@@ -169,34 +220,49 @@ int main(int argc, char* argv[]) {
         return -1;
     }
 
+    // Initialize the point cloud
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud = loadPointCloud(pcdfile);
+    if (!cloud) {
+        cerr << "Failed to load point cloud." << endl;
+        return -1;
+    }
+
+    // Toggle options for displaying projected points and axes
+    bool showPoints = false;
+    bool showAxes = false;
+    bool showTetrahedron = false;
+    bool showPointCloud = false;
     while (true) {
         Mat frame;
         cap >> frame;
-        if (frame.empty()) break;
+        if (frame.empty()) {
+            cerr << "ERROR: The frame is empty!" << endl;
+            break;
+        }
 
         // Detect ArUco markers in the frame
         vector<int> markerIds;
         vector<vector<Point2f>> markerCorners;
         detector.detectMarkers(frame, markerCorners, markerIds);
 
-        if (!markerIds.empty() && !showFaceCube) {
+        if (!markerIds.empty() && !showFaceHat) {
             // Draw detected markers
             aruco::drawDetectedMarkers(frame, markerCorners, markerIds);
-            
+
             vector<Vec3d> rvecs(markerIds.size()), tvecs(markerIds.size());
-            
+
             // Define 3D coordinates of marker corners
             vector<Point3f> objectPoints = {
-                {-MARKER_LENGTH/2, MARKER_LENGTH/2, 0},
-                {MARKER_LENGTH/2, MARKER_LENGTH/2, 0},
-                {MARKER_LENGTH/2, -MARKER_LENGTH/2, 0},
-                {-MARKER_LENGTH/2, -MARKER_LENGTH/2, 0}
+                    {-MARKER_LENGTH / 2, MARKER_LENGTH / 2,  0},
+                    {MARKER_LENGTH / 2,  MARKER_LENGTH / 2,  0},
+                    {MARKER_LENGTH / 2,  -MARKER_LENGTH / 2, 0},
+                    {-MARKER_LENGTH / 2, -MARKER_LENGTH / 2, 0}
             };
-            
+
             for (size_t i = 0; i < markerIds.size(); i++) {
                 // Estimate camera pose relative to marker
                 solvePnP(objectPoints, markerCorners[i], camera_matrix, distortion_coeffs, rvecs[i], tvecs[i]);
-                
+
                 // Toggle projected marker points
                 if (showPoints) {
                     vector<Point2f> projectedPoints;
@@ -205,7 +271,7 @@ int main(int argc, char* argv[]) {
                         circle(frame, projectedPoints[j], 5, Scalar(0, 0, 255), -1); // Red circles
                     }
                 }
-                
+
                 // Toggle 3D axis visualization
                 if (showAxes) {
                     // Define 3D axis points
@@ -215,6 +281,10 @@ int main(int argc, char* argv[]) {
                 // Render 3D object if 'o' key is pressed
                 if (showTetrahedron) {
                     drawTetrahedron(frame, rvecs[i], tvecs[i], camera_matrix, distortion_coeffs);
+                }
+
+                if (showPointCloud) {
+                    drawPointCloudOnFrame(frame, cloud, rvecs[i], tvecs[i], camera_matrix, distortion_coeffs);
                 }
             }
         }
@@ -263,8 +333,9 @@ int main(int argc, char* argv[]) {
         else if (key == 'a') showAxes = !showAxes; // Toggle 3D axes
         else if (key == 't') showTetrahedron = !showTetrahedron; // Toggle 3D axes
         else if (key == 'f') showFaceHat = !showFaceHat; // Toggle face cube
+        else if (key == 'c') showPointCloud = !showPointCloud; // Toggle 3D axes
     }
-    
+
     cap.release();
     destroyAllWindows();
     return 0;
