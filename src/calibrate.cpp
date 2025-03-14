@@ -83,46 +83,12 @@ private:
              markerPoints.emplace_back(Point3f(offset_x, offset_y - square_size, 0));    // Bottom-left
 
              framePoints.emplace_back(markerPoints);
-
-             // Print marker ID and positions
-             cout << "Marker ID: " << marker_id << " at grid (" << grid_x << ", " << grid_y << ")\n";
-             cout << "  Top-left: (" << offset_x << ", " << offset_y << ", 0)\n";
-             cout << "  Top-right: (" << offset_x + square_size << ", " << offset_y << ", 0)\n";
-             cout << "  Bottom-right: (" << offset_x + square_size << ", " << offset_y - square_size << ", 0)\n";
-             cout << "  Bottom-left: (" << offset_x << ", " << offset_y - square_size << ", 0)\n";
          }
 
          // add the 2d frame to corner_list
         corner_list.emplace_back(corner_set);
         // add the 3d frame to point_list
         point_list.emplace_back(framePoints);
-        // DEBUG print -- delete when finished test
-         // Print `point_set` (latest markers' 3D points)
-         cout << "Latest point_set (3D points per marker in current image):\n";
-         for (const auto& marker : framePoints) {
-             for (const auto& point : marker) {
-                 cout << "(" << point.x << ", " << point.y << ", " << point.z << ") ";
-             }
-             cout << endl;
-         }
-
-         // Print `point_list` (all saved images' 3D points)
-         cout << "All stored point_list (3D points for all images):\n";
-         for (size_t imgIdx = 0; imgIdx < point_list.size(); imgIdx++) {
-             int threeDmarkerSize = point_list[imgIdx].size();
-             int twoDMarkerSize = corner_list[imgIdx].size();
-             cout << "Image " << imgIdx << " has " << threeDmarkerSize << " 3D makers " << ", " << twoDMarkerSize << " 2D makers:\n";
-//             for (size_t markerIdx = 0; markerIdx < point_list[imgIdx].size(); markerIdx++) {
-//                 cout << "  Marker " << markerIdx << ": ";
-//                 for (const auto& point : point_list[imgIdx][markerIdx]) {
-//                     cout << "(" << point.x << ", " << point.y << ", " << point.z << ") ";
-//                 }
-//                 cout << endl;
-//             }
-         }
-
-         // Print the size of `point_list`
-         cout << "Total images stored in point_list: " << point_list.size() << endl;
     }
 
     /**
