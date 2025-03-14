@@ -23,7 +23,7 @@ Proj3/
 | ------------------------- | ------------------------------------------------------------ |
 | `calibrate.cpp`           | Live-stream video application, enabling camera calibration   |
 | `augReality.cpp`          | Augmented reality with ArUco marker detection and 3D object rendering |
-| `featureDetect.cpp`       | Real-time SIFT feature detection with adjustable contrast threshold |
+| `featureDetect.cpp`       | Real-time SIFT feature detection with adjustable threshold   |
 | `da2Video.cpp`            | Generates a 3D point cloud from depth data                   |
 | `pcdUtil.h / pcdUtil.cpp` | Supports 3D Point Cloud generation/visualization logic       |
 | `pointCloudDisplay.cpp`   | Point cloud visualization from a PCD file using command-line input |
@@ -65,6 +65,8 @@ Proj3/
 - **Task 4**: On running the above executable, the calibration parameters saved previously will be read and camera pose will be determined.
 - **Task 5**: Press **'p'** to toggle corner points display. Press **'a'** to toggle axes display.
 - **Task 6**: Press **'t'** to toggle tetrahedron display.
+- **Extension - OBJ loading** : Press **'o'** to toggle rendering of an OBJ file.
+- **Extension - Hat over faces** : Press **'f'** to toggle display of a 3D cone shaped hat    over detected faces.
 
 #### **3.featureDetection**
 
