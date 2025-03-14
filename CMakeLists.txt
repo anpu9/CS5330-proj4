@@ -32,7 +32,21 @@ function(add_opencv_executable exe_name)
     add_executable(${exe_name} ${ARGN})
     target_link_libraries(${exe_name} PRIVATE ${OpenCV_LIBS})
 endfunction()
-
+# Function for executables with OpenCV + PCL + JsonCpp)
+function(add_opencv_pcl_executable exe_name)
+    add_executable(${exe_name} ${ARGN})
+    target_link_libraries(${exe_name} PRIVATE
+            ${OpenCV_LIBS}
+            ${PCL_LIBRARIES}
+            JsonCpp::JsonCpp
+    )
+    target_include_directories(${exe_name} PRIVATE
+            ${OpenCV_INCLUDE_DIRS}
+            ${PCL_INCLUDE_DIRS}
+            JsonCpp::JsonCpp
+    )
+    target_compile_definitions(${exe_name} PRIVATE ${PCL_DEFINITIONS})
+endfunction()
 # Function for executables with all dependencies (OpenCV + PCL + ONNX + JsonCpp)
 function(add_opencv_depth_pcl_executable exe_name)
     add_executable(${exe_name} ${ARGN})
@@ -54,14 +68,16 @@ endfunction()
 add_opencv_executable(calibration
         src/calibrate.cpp)
 
-add_opencv_executable(augReality
-        src/augReality.cpp)
+add_opencv_pcl_executable(augReality
+        src/augReality.cpp
+        src/pcdUtil.cpp
+)
 
 add_opencv_executable(featureDetection
         src/featureDetect.cpp)
 
-add_opencv_depth_pcl_executable(da2Video
-        src/da2Video.cpp
+add_opencv_depth_pcl_executable(depth
+        src/depthImage.cpp
         src/pcdUtil.cpp
 )
 

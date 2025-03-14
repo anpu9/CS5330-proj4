@@ -32,6 +32,20 @@ bool loadCameraCalibration(const string& filename, Mat& cameraMatrix, Mat& disto
     fs.release();
     return true;
 }
+
+/**
+ * @brief load a PCD file
+ * @param filename pcl filename
+ */
+pcl::PointCloud<pcl::PointXYZRGB>::Ptr loadPointCloud(const string& filename) {
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+    if (pcl::io::loadPCDFile<pcl::PointXYZRGB>(filename, *cloud) == -1) {
+        cerr << "Error loading PCD file: " << filename << endl;
+        return nullptr;
+    }
+    return cloud;
+}
+
 /**
  * @brief Undistorts 2D pixel points using camera calibration parameters.
  *
