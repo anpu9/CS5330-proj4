@@ -1,7 +1,7 @@
 /*
  * Authors: Yuyang Tian and Arun Mekkad
- * Date: 2025/3/5
- * Purpose: Implementation of augmented reality
+ * Date: 2025/2/28
+ * Purpose: Augmented reality with ArUco marker detection and 3D object rendering
  */
 
 #include <opencv2/opencv.hpp>
@@ -131,7 +131,7 @@ void drawFaceHat(Mat& frame, const Rect& face, const Mat& cameraMatrix, const Ma
         if(i % 2 == 0) // Draw every second line to reduce clutter
             hatColor = Scalar(0, 255, 0); // Change color for every second line
         else
-            hatColor = Scalar(255, 0, 0); 
+            hatColor = Scalar(255, 0, 0);
         line(frame, projectedHatPoints[i], apexPoint, hatColor, thickness);
     }
 
@@ -151,7 +151,7 @@ int main(int argc, char* argv[]) {
     if (!loadCameraCalibration(filename, camera_matrix, distortion_coeffs)) return -1;
 
     // Open video capture
-    VideoCapture cap(2); // Use 0 for default camera
+    VideoCapture cap(0); // Use 0 for default camera
     if (!cap.isOpened()) {
         cerr << "Failed to open camera." << endl;
         return -1;
@@ -264,7 +264,7 @@ int main(int argc, char* argv[]) {
         else if (key == 't') showTetrahedron = !showTetrahedron; // Toggle 3D axes
         else if (key == 'f') showFaceHat = !showFaceHat; // Toggle face cube
     }
-    
+
     cap.release();
     destroyAllWindows();
     return 0;
