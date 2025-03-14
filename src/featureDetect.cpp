@@ -1,3 +1,9 @@
+/*
+ * Authors: Yuyang Tian and Arun Mekkad
+ * Date: 2025/3/6
+ * Purpose: Implementation of SIFT feature detection in real-time video
+ */
+
 #include <opencv2/opencv.hpp>
 #include <opencv2/features2d.hpp>
 #include <iostream>
